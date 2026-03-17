@@ -354,36 +354,81 @@ def show_category_view():
 def show_module_detail():
     code, name, desc, tables, records = st.session_state.selected_module
     cat_key = st.session_state.selected_category
-    
+
+    # 🔥 SPECIAL HANDLING FOR C3 MODULE
+    if code == "C3":
+        st.write("DEBUG MODULE DETAIL LOADED")
+        st.write("DEBUG selected_module:", st.session_state.selected_module)
+
+        st.success("Loading C3 Module...")
+
+        st.markdown("# Voice-Assisted Clinical Query System")
+
+        st.markdown("Enter a command (text simulation of voice):")
+        command = st.text_input("Command", placeholder="e.g., patients above 40")
+
+        if st.button("Run Query"):
+            if command:
+                cmd = command.lower()
+
+                if "above" in cmd and "40" in cmd:
+                    st.markdown("**SQL:** SELECT patients WHERE age > 40")
+                    st.markdown("**Result:** Rahul Sharma, John Doe, Amit Patel")
+
+                elif "diabetes" in cmd:
+                    st.markdown("**SQL:** SELECT patients WHERE condition = 'diabetes'")
+                    st.markdown("**Result:** 12 patients found")
+
+                elif "count" in cmd:
+                    st.markdown("**SQL:** SELECT COUNT(*) FROM patients")
+                    st.markdown("**Result:** Total Patients: 12450")
+
+                else:
+                    st.warning("Command not recognized")
+
+        st.divider()
+
+        if st.button("⬅ Back to Modules"):
+            st.session_state.view = "category"
+            st.rerun()
+
+        return  # 🚨 VERY IMPORTANT (prevents default UI)
+
+    # 🔽 DEFAULT MODULE UI (for all others)
+
     # Breadcrumb
     st.markdown(f"Category {cat_key.split('-')[0].strip()} > {name}")
     st.markdown(f"# {name}")
     st.markdown(f"*{desc}*")
-    
+
     # Tabs
-    tab = st.radio("", ["🏠 Home", "🔗 ER Diagram", "📋 Tables", "🔍 SQL Query", "⚡ Triggers", "📊 Output"], horizontal=True)
+    tab = st.radio(
+        "",
+        ["🏠 Home", "🔗 ER Diagram", "📋 Tables", "🔍 SQL Query", "⚡ Triggers", "📊 Output"],
+        horizontal=True
+    )
     st.divider()
-    
+
     if tab == "🏠 Home":
         st.info(f"**{name}** - {desc}")
-        
+
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("### Input Entities")
             st.success("1️⃣ Patient Form")
             st.success("2️⃣ Insurance Details")
             st.success("3️⃣ Emergency Contact")
-        
+
         with col2:
             st.markdown("### Output Entities")
             st.success("1️⃣ Patient Record")
             st.success("2️⃣ Admission Summary")
             st.success("3️⃣ Patient ID")
-    
+
     elif tab == "🔗 ER Diagram":
         st.markdown("### Entity Relationship Diagram")
         st.image("https://via.placeholder.com/900x500?text=ER+Diagram+for+" + code)
-    
+
     elif tab == "📋 Tables":
         st.markdown("### Database Tables")
         st.table({
@@ -391,7 +436,7 @@ def show_module_detail():
             "Records": [12500, 8900, 6400, 15200, 22100],
             "Status": ["✅ Active", "✅ Active", "✅ Active", "✅ Active", "✅ Active"]
         })
-    
+
     elif tab == "🔍 SQL Query":
         st.markdown("### Sample SQL Queries")
         st.code(f"""
@@ -403,10 +448,10 @@ WHERE p.status = 'active'
 ORDER BY p.admission_date DESC
 LIMIT 100;
 """, language="sql")
-        
+
         if st.button("▶️ Execute Query"):
             st.success("Query executed successfully! 1,234 rows returned.")
-    
+
     elif tab == "⚡ Triggers":
         st.markdown("### Database Triggers")
         st.code(f"""
@@ -418,18 +463,17 @@ BEGIN
   INSERT INTO audit_logs (entity_type, entity_id, action, timestamp)
   VALUES ('patient', NEW.patient_id, 'INSERT', NOW());
   
-  -- Send notification
   INSERT INTO notifications (user_id, message)
   VALUES (NEW.assigned_doctor, CONCAT('New patient registered: ', NEW.name));
 END;
 """, language="sql")
-    
+
     elif tab == "📊 Output":
         st.markdown("### Module Output")
         st.success("✅ Patient Registered Successfully")
         st.info("📋 Patient ID: PT-2024-001234")
         st.info("📅 Registration Date: January 08, 2026")
-        
+
         st.markdown("#### Generated Records")
         st.json({
             "patient_id": "PT-2024-001234",
@@ -438,7 +482,7 @@ END;
             "admission_date": "2026-01-08",
             "status": "active"
         })
-    
+
     st.divider()
     if st.button("⬅ Back to Modules"):
         st.session_state.view = "category"
