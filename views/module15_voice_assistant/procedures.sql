@@ -1,73 +1,92 @@
 DELIMITER //
 
 CREATE PROCEDURE ExecuteCommand(IN p_command_id INT)
-BEGIN
+proc: BEGIN
     DECLARE v_input TEXT;
-    DECLARE v_template_id INT;
+    DECLARE v_template_id INT DEFAULT NULL;
     DECLARE v_sql TEXT;
     DECLARE v_final_sql TEXT;
     DECLARE v_patient_id VARCHAR(50);
 
-    -- get command text
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_template_id = NULL;
+
+    -- Step 1: Get command text
     SELECT command_text INTO v_input
     FROM VoiceCommand
-    WHERE command_id = p_command_id;
+    WHERE command_id = p_command_id
+    LIMIT 1;
 
-    -- match template using keyword
+    -- Step 2: Match template
     SELECT template_id INTO v_template_id
     FROM CommandTemplate
     WHERE v_input LIKE CONCAT('%', keyword, '%')
     LIMIT 1;
 
-    -- if no template found
+    -- Step 3: If no template
     IF v_template_id IS NULL THEN
         UPDATE VoiceCommand
         SET execution_status = 'FAILED',
             response_text = 'Command not supported'
         WHERE command_id = p_command_id;
 
-    ELSE
+        LEAVE proc;
+    END IF;
 
-        -- store matched template
+    -- Step 4: Store template
+    UPDATE VoiceCommand
+    SET template_id = v_template_id
+    WHERE command_id = p_command_id;
+
+    -- Step 5: Get SQL query
+    SELECT sa.sql_query INTO v_sql
+    FROM SQL_Action sa
+    JOIN CommandTemplate ct 
+        ON sa.sql_action_id = ct.sql_action_id
+    WHERE ct.template_id = v_template_id
+    LIMIT 1;
+
+    -- Step 6: Validate SQL
+    IF v_sql IS NULL THEN
         UPDATE VoiceCommand
-        SET template_id = v_template_id
+        SET execution_status = 'FAILED',
+            response_text = 'SQL mapping missing'
         WHERE command_id = p_command_id;
 
-        -- get SQL query
-        SELECT sa.sql_query INTO v_sql
-        FROM SQL_Action sa
-        JOIN CommandTemplate ct ON sa.sql_action_id = ct.sql_action_id
-        WHERE ct.template_id = v_template_id;
+        LEAVE proc;
+    END IF;
 
-        -- get context (patient_id)
-        SELECT context_value INTO v_patient_id
-        FROM Context
-        WHERE command_id = p_command_id
-        AND context_type = 'patient_id'
-        LIMIT 1;
-        IF v_patient_id IS NULL THEN
+    -- Step 7: Get context
+    SELECT context_value INTO v_patient_id
+    FROM Context
+    WHERE command_id = p_command_id
+      AND context_type = 'patient_id'
+    LIMIT 1;
+
+    IF v_patient_id IS NULL THEN
         SET v_patient_id = '1';
     END IF;
-        -- replace placeholder
-        SET v_final_sql = REPLACE(v_sql, ':patient_id', v_patient_id);
 
-        -- execute dynamic SQL
-        SET @query = v_final_sql;
-        PREPARE stmt FROM @query;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
+    -- Security: enforce numeric
+    SET v_patient_id = CAST(v_patient_id AS UNSIGNED);
 
-            -- log executed query
-        INSERT INTO ExecutionLog (command_id, executed_query)
-        VALUES (p_command_id, v_final_sql);
+    -- Step 8: Replace placeholder
+    SET v_final_sql = REPLACE(v_sql, ':patient_id', v_patient_id);
 
-        -- update status
-        UPDATE VoiceCommand
-        SET execution_status = 'DONE',
-            response_text = v_final_sql
-        WHERE command_id = p_command_id;
+    -- Step 9: Execute
+    SET @query = v_final_sql;
+    PREPARE stmt FROM @query;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
 
-    END IF;
+    -- Step 10: Log
+    INSERT INTO ExecutionLog (command_id, executed_query)
+    VALUES (p_command_id, v_final_sql);
+
+    -- Step 11: Update status
+    UPDATE VoiceCommand
+    SET execution_status = 'DONE',
+        response_text = v_final_sql
+    WHERE command_id = p_command_id;
 
 END //
 
