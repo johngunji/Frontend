@@ -1,4 +1,5 @@
 # dashboards/patient_dashboard.py
+from modules.c3_voice_system import run_voice_system
 import streamlit as st
 from components.sidebar import sidebar
 from components.charts import patient_line_chart, appointment_donut_chart
@@ -148,15 +149,17 @@ def patient_dashboard():
         "I - Integrated Capstone Projects"
     ])
 
-    # Handle sidebar selection
-    if selected != "Dashboard" and selected in CATEGORIES:
-        st.session_state.selected_category = selected
-        st.session_state.view = "category"
-        st.session_state.selected_module = None
-    elif selected == "Dashboard":
+   # Handle sidebar selection
+    if selected == "Dashboard":
         st.session_state.view = "main"
         st.session_state.selected_category = None
         st.session_state.selected_module = None
+
+    elif selected in CATEGORIES:
+        if st.session_state.view != "module":
+            st.session_state.selected_category = selected
+            st.session_state.view = "category"
+            st.session_state.selected_module = None
 
     # ROUTER
     if st.session_state.view == "category":
@@ -346,7 +349,7 @@ def show_category_view():
                 mcol1.metric("Tables", tables)
                 mcol2.metric("Records", f"{records:,}")
                 
-                if st.button("→", key=f"mod_{code}", use_container_width=True):
+                if st.button("→", key=f"{cat_key}_{code}_{idx}", use_container_width=True):
                     st.session_state.selected_module = module
                     st.session_state.view = "module"
                     st.rerun()
@@ -356,96 +359,59 @@ def show_category_view():
     if st.button("⬅ Back to Dashboard"):
         st.session_state.view = "main"
         st.rerun()
-
 def show_module_detail():
+    # SAFETY CHECK
+    if st.session_state.selected_module is None:
+        st.warning("No module selected")
+        return
+
     code, name, desc, tables, records = st.session_state.selected_module
     cat_key = st.session_state.selected_category
-    
-    # Breadcrumb
+
+    # ✅ C3 VOICE MODULE
+    if code == "C3":
+        st.header("🧠 Voice-Assisted Clinical Query System")
+        st.caption("Natural language → SQL execution")
+
+        run_voice_system()
+
+        if st.button("⬅ Back to Modules"):
+            st.session_state.view = "category"
+            st.rerun()
+
+        return
+
+    # ---------------- DEFAULT MODULE ----------------
+
     st.markdown(f"Category {cat_key.split('-')[0].strip()} > {name}")
     st.markdown(f"# {name}")
     st.markdown(f"*{desc}*")
-    
-    # Tabs
+
     tab = st.radio("", ["🏠 Home", "🔗 ER Diagram", "📋 Tables", "🔍 SQL Query", "⚡ Triggers", "📊 Output"], horizontal=True)
     st.divider()
-    
+
     if tab == "🏠 Home":
         st.info(f"**{name}** - {desc}")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("### Input Entities")
-            st.success("1️⃣ Patient Form")
-            st.success("2️⃣ Insurance Details")
-            st.success("3️⃣ Emergency Contact")
-        
-        with col2:
-            st.markdown("### Output Entities")
-            st.success("1️⃣ Patient Record")
-            st.success("2️⃣ Admission Summary")
-            st.success("3️⃣ Patient ID")
-    
+
     elif tab == "🔗 ER Diagram":
-        st.markdown("### Entity Relationship Diagram")
-        st.image("https://via.placeholder.com/900x500?text=ER+Diagram+for+" + code)
-    
+        st.image("https://via.placeholder.com/900x500?text=ER+Diagram+" + code)
+
     elif tab == "📋 Tables":
-        st.markdown("### Database Tables")
         st.table({
-            "Table Name": ["patients", "insurance", "emergency_contacts", "admissions", "visit_history"],
-            "Records": [12500, 8900, 6400, 15200, 22100],
-            "Status": ["✅ Active", "✅ Active", "✅ Active", "✅ Active", "✅ Active"]
+            "Table Name": ["patients"],
+            "Records": [12500],
+            "Status": ["✅ Active"]
         })
-    
+
     elif tab == "🔍 SQL Query":
-        st.markdown("### Sample SQL Queries")
-        st.code(f"""
--- Query for {name}
-SELECT p.patient_id, p.name, p.age, i.insurance_type
-FROM patients p
-LEFT JOIN insurance i ON p.id = i.patient_id
-WHERE p.status = 'active'
-ORDER BY p.admission_date DESC
-LIMIT 100;
-""", language="sql")
-        
-        if st.button("▶️ Execute Query"):
-            st.success("Query executed successfully! 1,234 rows returned.")
-    
+        st.code("SELECT * FROM patients;", language="sql")
+
     elif tab == "⚡ Triggers":
-        st.markdown("### Database Triggers")
-        st.code(f"""
--- Trigger for {name}
-CREATE TRIGGER after_patient_insert
-AFTER INSERT ON patients
-FOR EACH ROW
-BEGIN
-  INSERT INTO audit_logs (entity_type, entity_id, action, timestamp)
-  VALUES ('patient', NEW.patient_id, 'INSERT', NOW());
-  
-  -- Send notification
-  INSERT INTO notifications (user_id, message)
-  VALUES (NEW.assigned_doctor, CONCAT('New patient registered: ', NEW.name));
-END;
-""", language="sql")
-    
+        st.code("CREATE TRIGGER example_trigger ...", language="sql")
+
     elif tab == "📊 Output":
-        st.markdown("### Module Output")
-        st.success("✅ Patient Registered Successfully")
-        st.info("📋 Patient ID: PT-2024-001234")
-        st.info("📅 Registration Date: January 08, 2026")
-        
-        st.markdown("#### Generated Records")
-        st.json({
-            "patient_id": "PT-2024-001234",
-            "name": "John Doe",
-            "age": 45,
-            "admission_date": "2026-01-08",
-            "status": "active"
-        })
-    
-    st.divider()
-    if st.button("⬅ Back to Modules"):
+        st.success("Sample output")
+
+    if st.button("⬅ Back"):
         st.session_state.view = "category"
         st.rerun()
