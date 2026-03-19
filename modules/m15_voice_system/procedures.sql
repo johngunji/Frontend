@@ -7,24 +7,23 @@ proc: BEGIN
     DECLARE v_template_id INT DEFAULT NULL;
     DECLARE v_sql TEXT;
     DECLARE v_final_sql TEXT;
-    DECLARE v_patient_id INT;
+    DECLARE v_value INT;
 
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_template_id = NULL;
 
-    -- Step 1: Match template (priority to longer keywords)
+    -- Match template (priority to longer keywords)
     SELECT template_id INTO v_template_id
     FROM CommandTemplate
     WHERE p_command REGEXP keyword
     ORDER BY LENGTH(keyword) DESC
     LIMIT 1;
 
-    -- Step 2: If no template found
     IF v_template_id IS NULL THEN
         SELECT 'Command not supported' AS error;
         LEAVE proc;
     END IF;
 
-    -- Step 3: Get SQL query
+    -- Get SQL
     SELECT sa.sql_query INTO v_sql
     FROM SQL_Action sa
     JOIN CommandTemplate ct 
@@ -32,29 +31,28 @@ proc: BEGIN
     WHERE ct.template_id = v_template_id
     LIMIT 1;
 
-    -- Step 4: Validate SQL
     IF v_sql IS NULL THEN
         SELECT 'SQL mapping missing' AS error;
         LEAVE proc;
     END IF;
 
-    -- Step 5: Extract patient_id from command
-    SET v_patient_id = REGEXP_SUBSTR(p_command, '[0-9]+');
+    -- Extract number
+    SET v_value = REGEXP_SUBSTR(p_command, '[0-9]+');
 
-    IF v_patient_id IS NULL THEN
-        SET v_patient_id = 1;
+    SET v_final_sql = v_sql;
+
+    IF v_value IS NOT NULL THEN
+        SET v_final_sql = REPLACE(v_final_sql, ':patient_id', v_value);
+        SET v_final_sql = REPLACE(v_final_sql, ':value', v_value);
     END IF;
 
-    -- Step 6: Replace placeholder
-    SET v_final_sql = REPLACE(v_sql, ':patient_id', v_patient_id);
-
-    -- Step 7: Execute dynamic SQL
+    -- Execute
     SET @query = v_final_sql;
     PREPARE stmt FROM @query;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
 
-    -- Step 8: Log execution
+    -- Log
     INSERT INTO ExecutionLog (executed_query)
     VALUES (v_final_sql);
 
