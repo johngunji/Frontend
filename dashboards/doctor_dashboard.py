@@ -6,8 +6,7 @@ from components.charts import patient_line_chart, appointment_donut_chart
 import matplotlib.pyplot as plt
 
 # ✅ C3 MODULE IMPORT
-from modules.c3_voice_system import run_voice_system
-
+from modules.m15_voice_system.page import render_page
 
 # ---------------- CATEGORIES ----------------
 
@@ -139,7 +138,7 @@ def show_module_detail():
         st.header("🧠 Voice-Assisted Clinical Query System")
         st.caption("Simulate voice-based clinical queries using text")
 
-        run_voice_system()
+        render_page()
 
         if st.button("⬅ Back to Modules"):
             st.session_state.view = "category"
