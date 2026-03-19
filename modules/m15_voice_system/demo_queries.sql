@@ -1,24 +1,11 @@
-select * from Patient;
-select * from Visit;
+-- Insert SQL actions
+INSERT INTO SQL_Action (sql_query) VALUES
+('SELECT * FROM patients WHERE patient_id = :patient_id'),
+('SELECT * FROM patients WHERE age > :value'),
+('SELECT * FROM patients');
 
-insert into VoiceCommand (command_text)
-values ('patients above 40');
-
-call ExecuteCommand(1);
-
-select command_id, command_text, execution_status, response_text
-from VoiceCommand;
-
-select * from ExecutionLog;
-
-insert into VoiceCommand (command_text)
-values ('show visits');
-
-call ExecuteCommand(2);
-
-select * from ExecutionLog;
-
-select * from PatientsAbove40;
-select * from PatientVisitSummary;
-select * from CommandHistory;
-select * from ExecutionDetails;
+-- Insert templates
+INSERT INTO CommandTemplate (template_pattern, keyword, command_type, sql_action_id) VALUES
+('show patient', 'patient', 'Retrieval', 1),
+('patient above', 'above', 'Retrieval', 2),
+('all patients', 'all', 'Retrieval', 3);
