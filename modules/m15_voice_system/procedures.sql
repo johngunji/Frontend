@@ -1,4 +1,3 @@
-
 DELIMITER //
 
 DROP PROCEDURE IF EXISTS ExecuteCommand //
@@ -10,26 +9,45 @@ proc: BEGIN
     DECLARE v_sql TEXT;
     DECLARE v_final_sql TEXT;
     DECLARE v_value INT;
+    DECLARE v_conditions TEXT DEFAULT '';
 
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_template_id = NULL;
 
-    -- Step 1: normalize input
+    -- normalize input
     SET p_command = LOWER(TRIM(p_command));
 
-    -- Step 2: insert into VoiceCommand
+    -- store the command
     INSERT INTO VoiceCommand (command_text, execution_status)
     VALUES (p_command, 'PENDING');
     SET v_command_id = LAST_INSERT_ID();
 
-    -- Step 3: match template using REGEXP, longer keywords win
-    SELECT template_id INTO v_template_id
-    FROM CommandTemplate
-    WHERE p_command REGEXP keyword
-    ORDER BY LENGTH(keyword) DESC
-    LIMIT 1;
+    -- score each template, lowest template_id wins on tie
+    SET @best_template = NULL;
+    SET @best_score = 0;
 
-    -- Step 4: no match
-    IF v_template_id IS NULL THEN
+    SELECT template_id,
+(
+   (p_command LIKE CONCAT('%', SUBSTRING_INDEX(keyword, ',', 1), '%')) +
+   (p_command LIKE CONCAT('%', SUBSTRING_INDEX(SUBSTRING_INDEX(keyword, ',', 2), ',', -1), '%')) +
+   (p_command LIKE CONCAT('%', SUBSTRING_INDEX(SUBSTRING_INDEX(keyword, ',', 3), ',', -1), '%')) +
+   (p_command LIKE CONCAT('%', SUBSTRING_INDEX(SUBSTRING_INDEX(keyword, ',', 4), ',', -1), '%')) +
+
+   -- 🔥 BONUS: number present → boost ID-based queries
+   (CASE 
+        WHEN REGEXP_SUBSTR(p_command, '[0-9]+') IS NOT NULL THEN 2 
+        ELSE 0 
+    END)
+
+) AS score
+INTO @best_template, @best_score
+FROM CommandTemplate
+ORDER BY score DESC, template_id ASC
+LIMIT 1;
+
+    SET v_template_id = @best_template;
+
+    -- no match found
+    IF v_template_id IS NULL OR @best_score = 0 THEN
         UPDATE VoiceCommand
         SET execution_status = 'FAILED',
             response_text = 'Command not recognised'
@@ -38,12 +56,12 @@ proc: BEGIN
         LEAVE proc;
     END IF;
 
-    -- Step 5: link template to command
+    -- link matched template to command
     UPDATE VoiceCommand
     SET template_id = v_template_id
     WHERE command_id = v_command_id;
 
-    -- Step 6: get SQL template
+    -- get the SQL for this template
     SELECT sa.sql_query INTO v_sql
     FROM SQL_Action sa
     JOIN CommandTemplate ct ON sa.sql_action_id = ct.sql_action_id
@@ -59,45 +77,61 @@ proc: BEGIN
         LEAVE proc;
     END IF;
 
-   -- Step 7: extract number safely
-SET @temp_value = REGEXP_SUBSTR(p_command, '[0-9]+');
+    -- extract number from command if present
+    SET @temp_value = REGEXP_SUBSTR(p_command, '[0-9]+');
+    IF @temp_value IS NULL OR @temp_value = '' THEN
+        SET v_value = NULL;
+    ELSE
+        SET v_value = CAST(@temp_value AS UNSIGNED);
+    END IF;
 
-IF @temp_value IS NULL OR @temp_value = '' THEN
-    SET v_value = NULL;
-ELSE
-    SET v_value = CAST(@temp_value AS UNSIGNED);
-END IF;
-SET v_final_sql = v_sql;
+    -- save number as context
+    IF v_value IS NOT NULL THEN
+        INSERT INTO Context (command_id, context_type, context_value)
+        VALUES (v_command_id, 'patient_id', v_value);
+    END IF;
+
+    -- build dynamic conditions
+    SET v_conditions = '';
+
+    -- age filter
+    IF p_command LIKE '%above%' AND v_value IS NOT NULL THEN
+        SET v_conditions = CONCAT(v_conditions, ' AND age > ', v_value);
+    ELSEIF p_command LIKE '%below%' AND v_value IS NOT NULL THEN
+        SET v_conditions = CONCAT(v_conditions, ' AND age < ', v_value);
+    END IF;
+
+    -- gender filter (space before male to avoid matching female)
+    IF p_command LIKE '%female%' THEN
+        SET v_conditions = CONCAT(v_conditions, " AND gender = 'Female'");
+    ELSEIF p_command LIKE '% male%' OR p_command LIKE 'male%' THEN
+        SET v_conditions = CONCAT(v_conditions, " AND gender = 'Male'");
+    END IF;
+
+    -- billing filter
+    IF p_command LIKE '%unpaid%' THEN
+        SET v_conditions = CONCAT(v_conditions, " AND payment_status = 'Pending'");
+    END IF;
+
+    -- replace placeholders
+    SET v_final_sql = REPLACE(v_sql, ':conditions', v_conditions);
 
     IF v_value IS NOT NULL THEN
         SET v_final_sql = REPLACE(v_final_sql, ':patient_id', v_value);
         SET v_final_sql = REPLACE(v_final_sql, ':value', v_value);
     END IF;
 
-    -- Step 8: inject context if available
-    IF v_value IS NULL THEN
-        SELECT context_value INTO v_value
-        FROM Context
-        WHERE command_id = v_command_id
-          AND context_type = 'patient_id'
-        LIMIT 1;
-
-        IF v_value IS NOT NULL THEN
-            SET v_final_sql = REPLACE(v_final_sql, ':patient_id', v_value);
-        END IF;
-    END IF;
-
-    -- Step 9: execute
+    -- execute the query
     SET @query = v_final_sql;
     PREPARE stmt FROM @query;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
 
-    -- Step 10: log
+    -- log what ran
     INSERT INTO ExecutionLog (command_id, executed_query)
     VALUES (v_command_id, v_final_sql);
 
-    -- Step 11: mark done
+    -- mark as done
     UPDATE VoiceCommand
     SET execution_status = 'DONE',
         response_text = v_final_sql
