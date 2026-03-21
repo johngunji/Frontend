@@ -1,7 +1,6 @@
 DELIMITER //
 
--- 1: normalize input and set default status before insert
-CREATE TRIGGER before_insert_voicecommand
+CREATE TRIGGER IF NOT EXISTS before_insert_voicecommand
 BEFORE INSERT ON VoiceCommand
 FOR EACH ROW
 BEGIN
@@ -9,8 +8,7 @@ BEGIN
     SET NEW.execution_status = 'PENDING';
 END //
 
--- 2: auto inject default patient_id context after command inserted
-CREATE TRIGGER after_insert_voicecommand
+CREATE TRIGGER IF NOT EXISTS after_insert_voicecommand
 AFTER INSERT ON VoiceCommand
 FOR EACH ROW
 BEGIN
@@ -18,8 +16,7 @@ BEGIN
     VALUES (NEW.command_id, 'patient_id', '1');
 END //
 
--- 3: block invalid status on update
-CREATE TRIGGER before_update_voicecommand
+CREATE TRIGGER IF NOT EXISTS before_update_voicecommand
 BEFORE UPDATE ON VoiceCommand
 FOR EACH ROW
 BEGIN
@@ -29,4 +26,3 @@ BEGIN
     END IF;
 END //
 
-DELIMITER ;
