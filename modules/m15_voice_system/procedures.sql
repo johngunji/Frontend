@@ -11,12 +11,14 @@ proc: BEGIN
     DECLARE v_value INT;
     DECLARE v_conditions TEXT DEFAULT '';
     DECLARE v_diagnosis VARCHAR(100) DEFAULT NULL;
-
+	DECLARE v_extracted_date VARCHAR(10) DEFAULT NULL;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_template_id = NULL;
 
     -- normalize input
     SET p_command = LOWER(TRIM(p_command));
 
+	-- extract date if present (YYYY-MM-DD)
+    SET v_extracted_date = REGEXP_SUBSTR(p_command, '[0-9]{4}-[0-9]{2}-[0-9]{2}');
     -- store the command
     INSERT INTO VoiceCommand (command_text, execution_status)
     VALUES (p_command, 'PENDING');
@@ -35,7 +37,7 @@ proc: BEGIN
     SET @best_template = NULL;
     SET @best_score = 0;
 
-    -- BULLETPROOF SCORING LOGIC
+-- BULLETPROOF SCORING LOGIC
     SELECT template_id,
     (
         (CONCAT(' ', p_command, ' ') LIKE CONCAT('% ', SUBSTRING_INDEX(keyword, ',', 1), ' %')) * 3 +
@@ -45,11 +47,17 @@ proc: BEGIN
         (CASE WHEN REGEXP_SUBSTR(p_command, '[0-9]+') IS NOT NULL THEN 2 ELSE 0 END) +
         (CASE WHEN p_command LIKE '%count%' AND command_type = 'Calculation' THEN 10 ELSE 0 END) +
         (CASE WHEN (p_command LIKE '%diabet%' OR p_command LIKE '%hypertens%' OR p_command LIKE '%fever%' OR p_command LIKE '%asthma%' OR p_command LIKE '%cardiac%' OR p_command LIKE '%thyroid%') AND template_pattern LIKE '%diagnosis%' THEN 50 ELSE 0 END) +
-        -- NEW FIX: Explicit routing for M14 Lab modules
-        (CASE WHEN (p_command LIKE '%lab%' OR p_command LIKE '%test%') AND template_pattern = 'patient lab results' THEN 40 ELSE 0 END) +
-        (CASE WHEN p_command LIKE '%trend%' AND template_pattern = 'patient lab trends' THEN 60 ELSE 0 END)
-    ) AS score
-    INTO @best_template, @best_score
+        
+        -- NEW FIX: Explicit routing for Date/Schedule modules
+        (CASE WHEN p_command LIKE '%today%' AND template_pattern = 'today visits' THEN 40 ELSE 0 END) +
+        (CASE WHEN p_command LIKE '%month%' AND template_pattern = 'this month visits' THEN 40 ELSE 0 END) +
+	-- NEW FIX: Explicit routing for specific dates
+        (CASE WHEN v_extracted_date IS NOT NULL AND v_extracted_date != '' AND template_pattern = 'specific date visits' THEN 60 ELSE 0 END) +        
+	-- NEW FIX: Explicit routing for M14 Lab modules
+        (CASE WHEN (CONCAT(' ', p_command, ' ') LIKE '% lab %' OR CONCAT(' ', p_command, ' ') LIKE '% test %') AND template_pattern = 'patient lab results' THEN 40 ELSE 0 END) +
+        
+	(CASE WHEN p_command LIKE '%trend%' AND template_pattern = 'patient lab trends' THEN 60 ELSE 0 END)
+    ) AS score    INTO @best_template, @best_score
     FROM CommandTemplate
     ORDER BY score DESC, template_id ASC
     LIMIT 1;
@@ -102,11 +110,21 @@ proc: BEGIN
     IF p_command LIKE '%pneumonia%' THEN SET v_diagnosis = 'pneumonia'; END IF;
 
     -- build conditions
+    -- build conditions
     SET v_conditions = '';
+    
     IF p_command LIKE '%above%' AND v_value IS NOT NULL THEN
         SET v_conditions = CONCAT(v_conditions, ' AND age > ', v_value);
     ELSEIF p_command LIKE '%below%' AND v_value IS NOT NULL THEN
         SET v_conditions = CONCAT(v_conditions, ' AND age < ', v_value);
+    ELSEIF v_value IS NOT NULL AND v_sql NOT LIKE '%:patient_id%' THEN
+        -- THE UNIVERSAL ID INJECTOR
+        -- If the base query uses JOINs, we must use the 'p.' alias to prevent ambiguous column errors
+        IF v_sql LIKE '%JOIN%' THEN
+            SET v_conditions = CONCAT(v_conditions, ' AND p.patient_id = ', v_value);
+        ELSE
+            SET v_conditions = CONCAT(v_conditions, ' AND patient_id = ', v_value);
+        END IF;
     END IF;
 
     IF p_command LIKE '%female%' THEN
@@ -120,6 +138,10 @@ proc: BEGIN
     END IF;
 
     SET v_final_sql = REPLACE(v_sql, ':conditions', v_conditions);
+
+IF v_extracted_date IS NOT NULL AND v_extracted_date != '' THEN
+        SET v_final_sql = REPLACE(v_final_sql, ':visit_date', v_extracted_date);
+    END IF;
 
     IF v_value IS NOT NULL THEN
         SET v_final_sql = REPLACE(v_final_sql, ':patient_id', v_value);
