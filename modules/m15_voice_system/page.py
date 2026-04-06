@@ -98,7 +98,16 @@ def render_page():
     st.caption("Audit log of recent natural language translations and execution status.")
 
     history_data = get_command_history()
-    if history_data:
-        st.dataframe(history_data, use_container_width=True, hide_index=True)
-    else:
-        st.info("No command history found yet.")
+        if history_data:
+            import pandas as pd
+            df_history = pd.DataFrame(history_data)
+            def color_status(val):
+                if val == 'DONE':
+                    return 'background-color: #1a472a; color: #90ee90'
+                elif val == 'FAILED':
+                    return 'background-color: #7b1a1a; color: #ff9999'
+                return ''
+            styled = df_history.style.applymap(color_status, subset=['Status'])
+            st.dataframe(styled, use_container_width=True, hide_index=True)
+        else:
+            st.info("No command history found yet.")
