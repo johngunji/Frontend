@@ -73,6 +73,16 @@ def render_page():
 
             st.dataframe(results)
 
+            # --- CSV EXPORT ---
+            import pandas as pd
+            df = pd.DataFrame(results)
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Download Results as CSV",
+                data=csv,
+                file_name="m15_query_results.csv",
+                mime="text/csv"
+            )
     # --- COMMAND HISTORY ---
     st.divider()
     st.subheader("🕒 System Command History")
