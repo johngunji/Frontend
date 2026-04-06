@@ -25,7 +25,7 @@ proc: BEGIN
     SET v_command_id = LAST_INSERT_ID();
 
     -- SAFETY NET 1: Block Destructive Commands
-    IF p_command LIKE '%drop%' OR p_command LIKE '%delete%' OR p_command LIKE '%update%' THEN
+IF p_command LIKE '%drop%' OR p_command LIKE '%delete%' THEN
         UPDATE VoiceCommand
         SET execution_status = 'FAILED',
             response_text = 'Destructive commands are not allowed'

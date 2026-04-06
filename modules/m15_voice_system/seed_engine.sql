@@ -39,3 +39,20 @@ INSERT INTO CommandTemplate (template_pattern, keyword, command_type, sql_action
 ('patient lab results',  'lab,labs,test,results',                     'Retrieval',   16),
 ('patient lab trends',   'trend,trends,change,tracking',              'Retrieval',   17),
 ('specific date visits', 'date,on,visits,day',                        'Retrieval',   18);
+
+
+INSERT INTO SummaryTemplate (summary_type, summary_sql, description) VALUES
+('patient_overview',
+ 'SELECT p.name, p.age, COUNT(v.visit_id) AS total_visits, MAX(v.visit_date) AS last_visit FROM Patient p JOIN Visit v ON p.patient_id = v.patient_id WHERE p.patient_id = 1 GROUP BY p.patient_id',
+ 'Quick summary of a single patient'),
+('daily_summary',
+ 'SELECT COUNT(*) AS today_visits, COUNT(DISTINCT patient_id) AS unique_patients FROM Visit WHERE DATE(visit_date) = CURDATE()',
+ 'Todays activity at a glance');
+
+
+-- Update type: Mark bill as paid
+INSERT INTO SQL_Action (sql_query, target_module) VALUES
+('UPDATE Billing SET payment_status = ''Paid'' WHERE visit_id = :patient_id', 'M15');
+
+INSERT INTO CommandTemplate (template_pattern, keyword, command_type, sql_action_id) VALUES
+('mark bill paid', 'mark,settle,clear,paid', 'Update', 19);

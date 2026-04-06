@@ -101,3 +101,12 @@ CREATE TABLE IF NOT EXISTS LabResult (
     FOREIGN KEY (visit_id) REFERENCES Visit(visit_id),
     FOREIGN KEY (test_id) REFERENCES LabTest(test_id)
 );
+
+
+-- M15 NLP: Summary Template Table
+CREATE TABLE IF NOT EXISTS SummaryTemplate (
+    summary_id INT PRIMARY KEY AUTO_INCREMENT,
+    summary_type VARCHAR(50) NOT NULL,
+    summary_sql TEXT NOT NULL,
+    description VARCHAR(255)
+);
