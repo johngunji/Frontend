@@ -84,3 +84,21 @@ def get_matched_template():
         return None
     finally:
         conn.close()
+
+        def get_template_usage():
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ct.template_pattern, COUNT(*) AS usage_count
+            FROM VoiceCommand vc
+            JOIN CommandTemplate ct ON vc.template_id = ct.template_id
+            GROUP BY ct.template_pattern
+            ORDER BY usage_count DESC
+            LIMIT 8
+        """)
+        return cursor.fetchall()
+    except:
+        return None
+    finally:
+        conn.close()

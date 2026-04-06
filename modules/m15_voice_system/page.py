@@ -3,8 +3,7 @@ import os
 import streamlit as st
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from modules.m15_voice_system.service import execute_command, get_latest_query, get_command_history, get_stats, get_matched_template
-
+from modules.m15_voice_system.service import execute_command, get_latest_query, get_command_history, get_stats, get_matched_template, get_template_usage
 def render_page():
     st.header("🧠 M15 - Voice-Assisted Clinical Query System")
     st.caption("Type a natural language command — the DBMS engine translates it to SQL")
@@ -83,6 +82,16 @@ def render_page():
                 file_name="m15_query_results.csv",
                 mime="text/csv"
             )
+    # --- TEMPLATE USAGE REPORT ---
+    st.divider()
+    st.subheader("📊 Most Used Query Templates")
+    usage = get_template_usage()
+    if usage:
+        import pandas as pd
+        df_usage = pd.DataFrame(usage)
+        st.bar_chart(df_usage.set_index('template_pattern')['usage_count'])
+        
+    
     # --- COMMAND HISTORY ---
     st.divider()
     st.subheader("🕒 System Command History")
