@@ -110,7 +110,7 @@ def render_page():
                 return 'background-color: #7b1a1a; color: #ff9999'
             return ''
 
-        styled = df_history.style.applymap(color_status, subset=['Status'])
+        styled = df_history.style.map(color_status, subset=['Status'])
         st.dataframe(styled, use_container_width=True, hide_index=True)
     else:
         st.info("No command history found yet.")
