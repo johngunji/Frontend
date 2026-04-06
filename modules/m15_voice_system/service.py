@@ -3,17 +3,18 @@ from modules.m15_voice_system.db import get_connection
 def execute_command(command):
     conn = get_connection()
     try:
-	cursor.callproc("ExecuteCommand", [command])
-	rows = []
-	for result in cursor.stored_results():
-    	rows = result.fetchall()
-	conn.commit()
-	return rows
+        cursor = conn.cursor()
+        cursor.callproc("ExecuteCommand", [command])
+        rows = []
+        for result in cursor.stored_results():
+            rows = result.fetchall()
+        conn.commit()
+        return rows
     except Exception as e:
         return [{"error": str(e)}]
     finally:
         conn.close()
-# Add this to the bottom of service.py
+
 
 def get_latest_query():
     """Fetches the exact SQL query that was just executed."""
