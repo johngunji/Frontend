@@ -85,7 +85,7 @@ def get_matched_template():
     finally:
         conn.close()
 
-        def get_template_usage():
+def get_template_usage():
     conn = get_connection()
     try:
         cursor = conn.cursor()
