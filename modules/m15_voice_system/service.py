@@ -4,10 +4,8 @@ def execute_command(command):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.callproc("ExecuteCommand", [command])
-        rows = []
-        for result in cursor.stored_results():
-            rows = result.fetchall()
+        cursor.execute("CALL ExecuteCommand(%s)", [command])
+        rows = cursor.fetchall()
         conn.commit()
         return rows
     except Exception as e:
