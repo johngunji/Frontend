@@ -48,3 +48,39 @@ def get_command_history():
         return []
     finally:
         conn.close()
+
+
+def get_stats():
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total,
+                SUM(execution_status = 'DONE') AS done,
+                SUM(execution_status = 'FAILED') AS failed
+            FROM VoiceCommand
+        """)
+        return cursor.fetchone()
+    except:
+        return None
+    finally:
+        conn.close()
+
+def get_matched_template():
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ct.template_pattern
+            FROM VoiceCommand vc
+            JOIN CommandTemplate ct ON vc.template_id = ct.template_id
+            ORDER BY vc.issued_time DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        return row['template_pattern'] if row else None
+    except:
+        return None
+    finally:
+        conn.close()
