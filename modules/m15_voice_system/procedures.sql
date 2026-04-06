@@ -75,7 +75,13 @@ IF p_command LIKE '%drop%' OR p_command LIKE '%delete%' THEN
         SET execution_status = 'FAILED',
             response_text = 'Command not recognised'
         WHERE command_id = v_command_id;
-        SELECT 'Command not recognised. Try: patient 1, all patients, diabetic patients, pending bills, visits 1, doctors' AS error;
+        SELECT CONCAT(
+            'Command not recognised: "', p_command, '". ',
+            'Try: show all patients | show diabetic patients | ',
+            'count visits 1 | show pending bills | ',
+            'show elderly patients | show diagnosis frequency | ',
+            'show medicine frequency | show doctor workload'
+        ) AS error;
         LEAVE proc;
     END IF;
 
