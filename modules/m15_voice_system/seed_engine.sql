@@ -56,3 +56,20 @@ INSERT INTO SQL_Action (sql_query, target_module) VALUES
 
 INSERT INTO CommandTemplate (template_pattern, keyword, command_type, sql_action_id) VALUES
 ('mark bill paid', 'mark,settle,clear,paid', 'Update', 19);
+
+-- New SQL Actions
+INSERT INTO SQL_Action (sql_query, target_module) VALUES
+('SELECT v.diagnosis, COUNT(*) AS total_cases FROM Visit v GROUP BY v.diagnosis ORDER BY total_cases DESC', 'M15'),
+('SELECT p.name, p.age, p.gender, v.diagnosis, v.visit_date FROM Patient p JOIN Visit v ON p.patient_id = v.patient_id WHERE p.age > 60', 'M15'),
+('SELECT pr.medicine_name, COUNT(*) AS times_prescribed FROM Prescription pr GROUP BY pr.medicine_name ORDER BY times_prescribed DESC', 'M15'),
+('SELECT d.name AS doctor, COUNT(v.visit_id) AS total_visits FROM Doctor d JOIN Visit v ON d.doctor_id = v.doctor_id GROUP BY d.doctor_id ORDER BY total_visits DESC', 'M15'),
+('SELECT p.name, SUM(b.amount) AS total_billed FROM Patient p JOIN Visit v ON p.patient_id = v.patient_id JOIN Billing b ON v.visit_id = b.visit_id GROUP BY p.patient_id ORDER BY total_billed DESC', 'M15');
+
+
+-- New Command Templates
+INSERT INTO CommandTemplate (template_pattern, keyword, command_type, sql_action_id) VALUES
+('diagnosis frequency',  'diagnosis,frequency,common,most',           'Summary',     20),
+('elderly patients',     'elderly,old,senior,above,60',               'Retrieval',   21),
+('medicine frequency',   'medicine,prescribed,common,frequency',      'Summary',     22),
+('doctor workload',      'workload,busiest,doctor,conducted',         'Summary',     23),
+('patient billing total','total,billed,billing,highest,spent',        'Summary',     24);

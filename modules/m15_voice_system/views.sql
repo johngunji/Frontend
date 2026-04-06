@@ -19,3 +19,9 @@ SELECT e.log_id, v.command_text,
        v.execution_status, e.executed_query, e.executed_at
 FROM ExecutionLog e
 JOIN VoiceCommand v ON e.command_id = v.command_id;
+
+CREATE OR REPLACE VIEW DiagnosisFrequency AS
+SELECT diagnosis, COUNT(*) AS total_cases
+FROM Visit
+GROUP BY diagnosis
+ORDER BY total_cases DESC;

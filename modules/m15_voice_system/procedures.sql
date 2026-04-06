@@ -56,7 +56,12 @@ IF p_command LIKE '%drop%' OR p_command LIKE '%delete%' THEN
 	-- NEW FIX: Explicit routing for M14 Lab modules
         (CASE WHEN (CONCAT(' ', p_command, ' ') LIKE '% lab %' OR CONCAT(' ', p_command, ' ') LIKE '% test %') AND template_pattern = 'patient lab results' THEN 40 ELSE 0 END) +
         
-	(CASE WHEN p_command LIKE '%trend%' AND template_pattern = 'patient lab trends' THEN 60 ELSE 0 END)
+(CASE WHEN p_command LIKE '%trend%' AND template_pattern = 'patient lab trends' THEN 60 ELSE 0 END) +
+(CASE WHEN p_command LIKE '%frequency%' AND p_command LIKE '%diagnosis%' AND template_pattern = 'diagnosis frequency' THEN 60 ELSE 0 END) +
+(CASE WHEN p_command LIKE '%elderly%' AND template_pattern = 'elderly patients' THEN 60 ELSE 0 END) +
+(CASE WHEN p_command LIKE '%medicine%' AND p_command LIKE '%frequency%' AND template_pattern = 'medicine frequency' THEN 60 ELSE 0 END) +
+(CASE WHEN p_command LIKE '%workload%' AND template_pattern = 'doctor workload' THEN 60 ELSE 0 END) +
+(CASE WHEN p_command LIKE '%billed%' AND template_pattern = 'patient billing total' THEN 60 ELSE 0 END)
     ) AS score    INTO @best_template, @best_score
     FROM CommandTemplate
     ORDER BY score DESC, template_id ASC
