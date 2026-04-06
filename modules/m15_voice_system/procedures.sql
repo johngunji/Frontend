@@ -19,6 +19,8 @@ proc: BEGIN
 
 	-- extract date if present (YYYY-MM-DD)
     SET v_extracted_date = REGEXP_SUBSTR(p_command, '[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    SET @v_end_date = REGEXP_SUBSTR(SUBSTRING(p_command, LOCATE(v_extracted_date, p_command) + 11), '[0-9]{4}-[0-9]{2}-[0-9]{2}');
+
     -- store the command
     INSERT INTO VoiceCommand (command_text, execution_status)
     VALUES (p_command, 'PENDING');
@@ -61,8 +63,12 @@ IF p_command LIKE '%drop%' OR p_command LIKE '%delete%' THEN
 (CASE WHEN p_command LIKE '%elderly%' AND template_pattern = 'elderly patients' THEN 60 ELSE 0 END) +
 (CASE WHEN p_command LIKE '%medicine%' AND p_command LIKE '%frequency%' AND template_pattern = 'medicine frequency' THEN 60 ELSE 0 END) +
 (CASE WHEN p_command LIKE '%workload%' AND template_pattern = 'doctor workload' THEN 60 ELSE 0 END) +
-(CASE WHEN p_command LIKE '%billed%' AND template_pattern = 'patient billing total' THEN 60 ELSE 0 END)
-    ) AS score    INTO @best_template, @best_score
+(CASE WHEN p_command LIKE '%billed%' AND template_pattern = 'patient billing total' THEN 60 ELSE 0 END)+
+(CASE WHEN p_command LIKE '%summary%' AND template_pattern = 'patient summary' THEN 60 ELSE 0 END) +
+(CASE WHEN (p_command LIKE '%taking%' OR p_command LIKE '%on metformin%' OR p_command LIKE '%prescribed%') AND template_pattern = 'medicine search' THEN 60 ELSE 0 END) +
+(CASE WHEN (p_command LIKE '%high risk%' OR p_command LIKE '%risk%') AND template_pattern = 'high risk patients' THEN 60 ELSE 0 END) +
+(CASE WHEN p_command LIKE '%between%' AND template_pattern = 'date range visits' THEN 60 ELSE 0 END)
+) AS score    INTO @best_template, @best_score
     FROM CommandTemplate
     ORDER BY score DESC, template_id ASC
     LIMIT 1;
@@ -119,6 +125,11 @@ IF p_command LIKE '%drop%' OR p_command LIKE '%delete%' THEN
     IF p_command LIKE '%thyroid%'   THEN SET v_diagnosis = 'thyroid'; END IF;
     IF p_command LIKE '%migraine%'  THEN SET v_diagnosis = 'migraine'; END IF;
     IF p_command LIKE '%pneumonia%' THEN SET v_diagnosis = 'pneumonia'; END IF;
+    IF p_command LIKE '%metformin%'  THEN SET v_diagnosis = 'metformin'; END IF;
+    IF p_command LIKE '%amlodipine%' THEN SET v_diagnosis = 'amlodipine'; END IF;
+    IF p_command LIKE '%paracetamol%' THEN SET v_diagnosis = 'paracetamol'; END IF;
+    IF p_command LIKE '%salbutamol%' THEN SET v_diagnosis = 'salbutamol'; END IF;
+    IF p_command LIKE '%montelukast%' THEN SET v_diagnosis = 'montelukast'; END IF;
 
     -- build conditions
     -- build conditions
@@ -152,7 +163,13 @@ IF p_command LIKE '%drop%' OR p_command LIKE '%delete%' THEN
 
 IF v_extracted_date IS NOT NULL AND v_extracted_date != '' THEN
         SET v_final_sql = REPLACE(v_final_sql, ':visit_date', v_extracted_date);
-    END IF;
+        SET v_final_sql = REPLACE(v_final_sql, ':start_date', CONCAT('''', v_extracted_date, ''''));
+        IF @v_end_date IS NOT NULL AND @v_end_date != '' THEN
+            SET v_final_sql = REPLACE(v_final_sql, ':end_date', CONCAT('''', @v_end_date, ''''));
+        ELSE
+            SET v_final_sql = REPLACE(v_final_sql, ':end_date', CONCAT('''', v_extracted_date, ''''));
+        END IF;
+END IF;
 
     IF v_value IS NOT NULL THEN
         SET v_final_sql = REPLACE(v_final_sql, ':patient_id', v_value);

@@ -73,3 +73,23 @@ INSERT INTO CommandTemplate (template_pattern, keyword, command_type, sql_action
 ('medicine frequency',   'medicine,prescribed,common,frequency',      'Summary',     22),
 ('doctor workload',      'workload,busiest,doctor,conducted',         'Summary',     23),
 ('patient billing total','total,billed,billing,highest,spent',        'Summary',     24);
+-- Patient Summary (all-in-one)
+INSERT INTO SQL_Action (sql_query, target_module) VALUES
+('SELECT p.name, p.age, p.gender, p.phone, v.visit_date, v.diagnosis, d.name AS doctor, pr.medicine_name, pr.dosage, b.amount, b.payment_status FROM Patient p LEFT JOIN Visit v ON p.patient_id = v.patient_id LEFT JOIN Doctor d ON v.doctor_id = d.doctor_id LEFT JOIN Prescription pr ON v.visit_id = pr.visit_id LEFT JOIN Billing b ON v.visit_id = b.visit_id WHERE p.patient_id = :patient_id ORDER BY v.visit_date DESC', 'M15');
+
+-- Search by medicine
+INSERT INTO SQL_Action (sql_query, target_module) VALUES
+('SELECT DISTINCT p.name, p.age, p.gender, pr.medicine_name, pr.dosage FROM Patient p JOIN Visit v ON p.patient_id = v.patient_id JOIN Prescription pr ON v.visit_id = pr.visit_id WHERE LOWER(pr.medicine_name) LIKE LOWER(CONCAT(''%'','':diagnosis'',''%''))', 'M15');
+-- High risk patients
+INSERT INTO SQL_Action (sql_query, target_module) VALUES
+('SELECT DISTINCT p.name, p.age, v.diagnosis, b.payment_status, b.amount FROM Patient p JOIN Visit v ON p.patient_id = v.patient_id JOIN Billing b ON v.visit_id = b.visit_id WHERE b.payment_status = ''Pending'' ORDER BY b.amount DESC', 'M15');
+
+-- Date range visits
+INSERT INTO SQL_Action (sql_query, target_module) VALUES
+('SELECT p.name, v.visit_date, v.diagnosis, d.name AS doctor FROM Visit v JOIN Patient p ON v.patient_id = p.patient_id JOIN Doctor d ON v.doctor_id = d.doctor_id WHERE v.visit_date BETWEEN :start_date AND :end_date ORDER BY v.visit_date DESC', 'M15');
+-- New Command Templates
+INSERT INTO CommandTemplate (template_pattern, keyword, command_type, sql_action_id) VALUES
+('patient summary',    'summary,complete,full,overview',        'Summary',   25),
+('medicine search',   'on,taking,prescribed,metformin,medicine','Retrieval', 26),
+('high risk patients','risk,high,danger,critical,unpaid',       'Retrieval', 27),
+('date range visits', 'between,from,range,and',                 'Retrieval', 28);
