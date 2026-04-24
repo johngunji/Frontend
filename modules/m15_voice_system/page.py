@@ -2,8 +2,15 @@ import sys
 import os
 import streamlit as st
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from modules.m15_voice_system.service import execute_command, get_latest_query, get_command_history, get_stats, get_matched_template, get_template_usage
+
+from service import (
+    execute_command,
+    get_latest_query,
+    get_command_history,
+    get_stats,
+    get_matched_template,
+    get_template_usage
+)
 def render_page():
  
 
