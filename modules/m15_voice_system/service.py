@@ -1,5 +1,4 @@
-from modules.m15_voice_system.db import get_connection
-
+from db import get_connection
 def execute_command(command):
     conn = get_connection()
     try:
