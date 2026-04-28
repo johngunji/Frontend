@@ -1,4 +1,5 @@
 from db import get_connection
+
 def execute_command(command):
     conn = get_connection()
     try:
@@ -14,37 +15,36 @@ def execute_command(command):
 
 
 def get_latest_query():
-    """Fetches the exact SQL query that was just executed."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT executed_query FROM ExecutionLog ORDER BY executed_at DESC LIMIT 1")
+        cursor.execute("""
+            SELECT executed_query 
+            FROM ExecutionLog 
+            ORDER BY executed_at DESC 
+            LIMIT 1
+        """)
         row = cursor.fetchone()
         return row['executed_query'] if row else None
-    except Exception as e:
-        return None
     finally:
         conn.close()
 
+
 def get_command_history():
-    """Fetches the last 10 commands from the CommandHistory view."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        # Pulling from the view we created in views.sql
         cursor.execute("""
-            SELECT 
-                command_text AS 'Natural Language Command', 
-                response_text AS 'Generated SQL / Response', 
-                execution_status AS 'Status', 
-                issued_time AS 'Timestamp' 
-            FROM CommandHistory 
-            ORDER BY issued_time DESC 
+            SELECT
+                command_text AS 'Natural Language Command',
+                response_text AS 'Generated SQL / Response',
+                execution_status AS 'Status',
+                issued_time AS 'Timestamp'
+            FROM CommandHistory
+            ORDER BY issued_time DESC
             LIMIT 10
         """)
         return cursor.fetchall()
-    except Exception as e:
-        return []
     finally:
         conn.close()
 
@@ -61,10 +61,9 @@ def get_stats():
             FROM VoiceCommand
         """)
         return cursor.fetchone()
-    except:
-        return None
     finally:
         conn.close()
+
 
 def get_matched_template():
     conn = get_connection()
@@ -73,16 +72,16 @@ def get_matched_template():
         cursor.execute("""
             SELECT ct.template_pattern
             FROM VoiceCommand vc
-            JOIN CommandTemplate ct ON vc.template_id = ct.template_id
+            JOIN CommandTemplate ct 
+                ON vc.template_id = ct.template_id
             ORDER BY vc.issued_time DESC
             LIMIT 1
         """)
         row = cursor.fetchone()
         return row['template_pattern'] if row else None
-    except:
-        return None
     finally:
         conn.close()
+
 
 def get_template_usage():
     conn = get_connection()
@@ -91,13 +90,12 @@ def get_template_usage():
         cursor.execute("""
             SELECT ct.template_pattern, COUNT(*) AS usage_count
             FROM VoiceCommand vc
-            JOIN CommandTemplate ct ON vc.template_id = ct.template_id
+            JOIN CommandTemplate ct 
+                ON vc.template_id = ct.template_id
             GROUP BY ct.template_pattern
             ORDER BY usage_count DESC
             LIMIT 8
         """)
         return cursor.fetchall()
-    except:
-        return None
     finally:
         conn.close()
